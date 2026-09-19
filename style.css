@@ -3,3 +3,11 @@ body {
   background-color: #f4f1ea;
   text-align: center;
   margin-top: 40px;
+}
+  main {
+  border: 2px dashed #a89f8c;
+  padding: 40px;
+  margin: 30px auto;
+  max-width: 500px;
+  border-radius: 8px;
+}
