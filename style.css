@@ -21,3 +21,9 @@ body {
   flex: 1;
   min-width: 150px;
 }
+
+.card h2 {
+  color: #7a5c3e;
+  font-size: 18px;
+  margin-bottom: 8px;
+}
