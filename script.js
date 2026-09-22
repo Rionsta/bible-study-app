@@ -42,3 +42,7 @@ cards.forEach(function(card) {
     note.classList.toggle("hidden");
   });
 });
+
+document.getElementById("theme-toggle").addEventListener("click", function() {
+  document.body.classList.toggle("gaming-theme");
+});

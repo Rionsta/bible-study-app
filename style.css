@@ -31,3 +31,12 @@ body {
 .hidden {
   display: none;
 }
+
+body.gaming-theme {
+  background-color: #1a1a2e;
+  color: #eaeaea;
+}
+
+.card {
+  color: #23262b;
+}
