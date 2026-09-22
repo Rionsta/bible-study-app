@@ -45,4 +45,14 @@ cards.forEach(function(card) {
 
 document.getElementById("theme-toggle").addEventListener("click", function() {
   document.body.classList.toggle("gaming-theme");
+
+  if (document.body.classList.contains("gaming-theme")) {
+    localStorage.setItem("theme", "gaming-theme");
+  } else {
+    localStorage.setItem("theme", "light");
+  }
 });
+
+if (localStorage.getItem("theme") === "gaming-theme") {
+  document.body.classList.add("gaming-theme");
+}
