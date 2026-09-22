@@ -34,4 +34,11 @@ document.getElementById("reset-button").addEventListener("click", function () {
 })
 ;
 
+const cards = document.querySelectorAll(".card");
 
+cards.forEach(function(card) {
+  card.addEventListener("click", function() {
+    const note = card.querySelector(".reflection-note");
+    note.classList.toggle("hidden");
+  });
+});
