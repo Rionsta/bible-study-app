@@ -57,7 +57,18 @@ if (localStorage.getItem("theme") === "gaming-theme") {
   document.body.classList.add("gaming-theme");
 }
 
-document.querySelectorAll(".reflection-note").forEach(function(note) {
+document.querySelectorAll(".reflection-note").forEach(function(note, index) {
+  const key = "note-" + index;
+
+  const savedText = localStorage.getItem(key);
+  if (savedText) {
+    note.value = savedText;
+  }
+
+  note.addEventListener("input", function() {
+    localStorage.setItem(key, note.value);
+  });
+
   note.addEventListener("click", function(event) {
     event.stopPropagation();
   });
