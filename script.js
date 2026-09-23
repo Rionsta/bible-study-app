@@ -56,3 +56,9 @@ document.getElementById("theme-toggle").addEventListener("click", function() {
 if (localStorage.getItem("theme") === "gaming-theme") {
   document.body.classList.add("gaming-theme");
 }
+
+document.querySelectorAll(".reflection-note").forEach(function(note) {
+  note.addEventListener("click", function(event) {
+    event.stopPropagation();
+  });
+});
