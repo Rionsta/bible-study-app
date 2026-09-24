@@ -73,3 +73,67 @@ document.querySelectorAll(".reflection-note").forEach(function(note, index) {
     event.stopPropagation();
   });
 });
+
+const world = document.getElementById("canvas-world");
+const viewport = document.getElementById("canvas-viewport");
+
+let isDragging = false;
+let startX, startY;
+let offsetX = 0, offsetY = 0;
+
+viewport.addEventListener("mousedown", function(event) {
+  isDragging = true;
+  startX = event.clientX - offsetX;
+  startY = event.clientY - offsetY;
+});
+
+viewport.addEventListener("mousemove", function(event) {
+  if (isDragging) {
+    offsetX = event.clientX - startX;
+    offsetY = event.clientY - startY;
+    world.style.transform = "translate(" + offsetX + "px, " + offsetY + "px)";
+  }
+});
+
+viewport.addEventListener("mouseup", function() {
+  isDragging = false;
+});
+
+let activeCard = null;
+let cardStartX, cardStartY;
+
+document.querySelectorAll(".card").forEach(function(card) {
+  // Restore this card's saved position, if it has one
+  const savedLeft = localStorage.getItem(card.id + "-left");
+  const savedTop = localStorage.getItem(card.id + "-top");
+  if (savedLeft && savedTop) {
+    card.style.left = savedLeft;
+    card.style.top = savedTop;
+  }
+
+  card.addEventListener("mousedown", function(event) {
+    event.stopPropagation();
+    activeCard = card;
+    cardStartX = event.clientX - card.offsetLeft;
+    cardStartY = event.clientY - card.offsetTop;
+  });
+});
+
+document.addEventListener("mouseup", function() {
+  if (activeCard) {
+    localStorage.setItem(activeCard.id + "-left", activeCard.style.left);
+    localStorage.setItem(activeCard.id + "-top", activeCard.style.top);
+  }
+  activeCard = null;
+});
+
+document.addEventListener("mousemove", function(event) {
+  if (activeCard) {
+    activeCard.style.left = (event.clientX - cardStartX) + "px";
+    activeCard.style.top = (event.clientY - cardStartY) + "px";
+  }
+});
+
+document.addEventListener("mouseup", function() {
+  activeCard = null;
+});

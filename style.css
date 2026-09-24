@@ -15,6 +15,7 @@ body {
 
 .card {
   background: white;
+  color: #23262b;
   border: 2px dashed #a89f8c;
   padding: 30px;
   border-radius: 8px;
@@ -38,5 +39,45 @@ body.gaming-theme {
 }
 
 .card {
-  color: #23262b;
+  background: white;
+  border: 2px dashed #a89f8c;
+  padding: 30px;
+  border-radius: 8px;
+  position: absolute;
+  width: 220px;
+}
+
+#canvas-viewport {
+  width: 100%;
+  height: 100vh;
+  overflow: hidden;
+  position: relative;
+}
+
+#canvas-world {
+  position: relative;
+  padding: 30px;
+}
+
+#canvas-viewport {
+  cursor: grab;
+}
+
+#canvas-viewport:active {
+  cursor: grabbing;
+}
+
+#genesis-card {
+  top: 50px;
+  left: 50px;
+}
+
+#psalm-card {
+  top: 50px;
+  left: 350px;
+}
+
+#john-card {
+  top: 50px;
+  left: 650px;
 }
