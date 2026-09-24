@@ -124,6 +124,24 @@ function renderCard(data) {
     card.appendChild(textarea);
   }
 
+  const deleteButton = document.createElement("button");
+deleteButton.className = "delete-button";
+deleteButton.textContent = "×";
+
+deleteButton.addEventListener("mousedown", function(event) {
+  event.stopPropagation();
+});
+
+deleteButton.addEventListener("click", function() {
+  card.remove();
+  cardsData = cardsData.filter(function(c) {
+    return c.id !== data.id;
+  });
+  saveCards();
+});
+
+card.appendChild(deleteButton);
+
   card.addEventListener("mousedown", function(event) {
     event.stopPropagation();
     activeCard = card;
