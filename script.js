@@ -109,7 +109,7 @@ function renderCard(data) {
     card.appendChild(paragraph);
   } else if (data.type === "note") {
     const textarea = document.createElement("textarea");
-    textarea.placeholder = "Type your note here...";
+    textarea.placeholder = "...";
     textarea.value = data.text;
 
     textarea.addEventListener("mousedown", function(event) {

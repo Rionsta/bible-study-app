@@ -99,3 +99,17 @@ body.gaming-theme {
 .delete-button:hover {
   color: #7a5c3e;
 }
+
+.card textarea {
+  width: 100%;
+  min-height: 60px;
+  border: none;
+  outline: none;
+  resize: none;
+  background: transparent;
+  font-family: inherit;
+  font-size: inherit;
+  color: inherit;
+  text-align: center;
+  padding: 0;
+}
