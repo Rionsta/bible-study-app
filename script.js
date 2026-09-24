@@ -34,15 +34,6 @@ document.getElementById("reset-button").addEventListener("click", function () {
 })
 ;
 
-const cards = document.querySelectorAll(".card");
-
-cards.forEach(function(card) {
-  card.addEventListener("click", function() {
-    const note = card.querySelector(".reflection-note");
-    note.classList.toggle("hidden");
-  });
-});
-
 document.getElementById("theme-toggle").addEventListener("click", function() {
   document.body.classList.toggle("gaming-theme");
 
@@ -56,23 +47,6 @@ document.getElementById("theme-toggle").addEventListener("click", function() {
 if (localStorage.getItem("theme") === "gaming-theme") {
   document.body.classList.add("gaming-theme");
 }
-
-document.querySelectorAll(".reflection-note").forEach(function(note, index) {
-  const key = "note-" + index;
-
-  const savedText = localStorage.getItem(key);
-  if (savedText) {
-    note.value = savedText;
-  }
-
-  note.addEventListener("input", function() {
-    localStorage.setItem(key, note.value);
-  });
-
-  note.addEventListener("click", function(event) {
-    event.stopPropagation();
-  });
-});
 
 const world = document.getElementById("canvas-world");
 const viewport = document.getElementById("canvas-viewport");
@@ -99,33 +73,69 @@ viewport.addEventListener("mouseup", function() {
   isDragging = false;
 });
 
+let cardsData = [
+  { id: "genesis-card", type: "scripture", reference: "Genesis 1:1", text: "In the beginning, God created the heavens and the earth.", left: 50, top: 50 },
+  { id: "psalm-card", type: "scripture", reference: "Psalm 23:1", text: "The Lord is my shepherd; I shall not want.", left: 350, top: 50 },
+  { id: "john-card", type: "scripture", reference: "John 3:16", text: "For God so loved the world, that he gave his only Son.", left: 650, top: 50 }
+];
+
+const savedData = localStorage.getItem("cardsData");
+if (savedData) {
+  cardsData = JSON.parse(savedData);
+}
+
+function saveCards() {
+  localStorage.setItem("cardsData", JSON.stringify(cardsData));
+}
+
 let activeCard = null;
+let activeCardData = null;
 let cardStartX, cardStartY;
 
-document.querySelectorAll(".card").forEach(function(card) {
-  // Restore this card's saved position, if it has one
-  const savedLeft = localStorage.getItem(card.id + "-left");
-  const savedTop = localStorage.getItem(card.id + "-top");
-  if (savedLeft && savedTop) {
-    card.style.left = savedLeft;
-    card.style.top = savedTop;
+function renderCard(data) {
+  const card = document.createElement("div");
+  card.className = "card";
+  card.id = data.id;
+  card.style.left = data.left + "px";
+  card.style.top = data.top + "px";
+
+  if (data.type === "scripture") {
+    const heading = document.createElement("h2");
+    heading.textContent = data.reference;
+    card.appendChild(heading);
+
+    const paragraph = document.createElement("p");
+    paragraph.textContent = data.text;
+    card.appendChild(paragraph);
+  } else if (data.type === "note") {
+    const textarea = document.createElement("textarea");
+    textarea.placeholder = "Type your note here...";
+    textarea.value = data.text;
+
+    textarea.addEventListener("mousedown", function(event) {
+      event.stopPropagation();
+    });
+
+    textarea.addEventListener("input", function() {
+      data.text = textarea.value;
+      saveCards();
+    });
+
+    card.appendChild(textarea);
   }
 
   card.addEventListener("mousedown", function(event) {
     event.stopPropagation();
     activeCard = card;
+    activeCardData = data;
     cardStartX = event.clientX - card.offsetLeft;
     cardStartY = event.clientY - card.offsetTop;
   });
-});
 
-document.addEventListener("mouseup", function() {
-  if (activeCard) {
-    localStorage.setItem(activeCard.id + "-left", activeCard.style.left);
-    localStorage.setItem(activeCard.id + "-top", activeCard.style.top);
-  }
-  activeCard = null;
-});
+  world.appendChild(card);
+}
+
+cardsData.forEach(renderCard);
 
 document.addEventListener("mousemove", function(event) {
   if (activeCard) {
@@ -135,5 +145,21 @@ document.addEventListener("mousemove", function(event) {
 });
 
 document.addEventListener("mouseup", function() {
+  if (activeCard && activeCardData) {
+    activeCardData.left = parseInt(activeCard.style.left);
+    activeCardData.top = parseInt(activeCard.style.top);
+    saveCards();
+  }
   activeCard = null;
+  activeCardData = null;
+});
+
+let newCardCount = 0;
+
+document.getElementById("add-card-button").addEventListener("click", function() {
+  newCardCount++;
+  const newData = { id: "note-card-" + newCardCount, type: "note", text: "", left: 100, top: 300 };
+  cardsData.push(newData);
+  renderCard(newData);
+  saveCards();
 });
