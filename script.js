@@ -1,39 +1,3 @@
-let health = 100;
-
-function takeDamage(amount) {
-  health = health - amount;
-  if (health < 0) { health = 0; }
-  document.getElementById("health-display").textContent = "Health: " + health;
-  console.log(health);
-}
-
-document.getElementById("damage-button").addEventListener("click", function () {
-  takeDamage(10);
-})
-
-function heal(amount) {
-  health = health + amount;
-  document.getElementById("health-display").textContent = "Health: " + health;
-  console.log(health);
-}
-
-document.getElementById("heal-button").addEventListener("click", function () {
-  heal(15);
-
-  
-})
-
-function reset(amount) {
-  health = amount;
-  document.getElementById("health-display").textContent = "Health: " + health;
-  console.log(health);
-}
-
-document.getElementById("reset-button").addEventListener("click", function () {
-  reset(100);
-})
-;
-
 document.getElementById("theme-toggle").addEventListener("click", function() {
   document.body.classList.toggle("gaming-theme");
 
@@ -65,7 +29,7 @@ viewport.addEventListener("mousemove", function(event) {
   if (isDragging) {
     offsetX = event.clientX - startX;
     offsetY = event.clientY - startY;
-    world.style.transform = "translate(" + offsetX + "px, " + offsetY + "px)";
+    updateWorldTransform();
   }
 });
 
@@ -208,4 +172,25 @@ document.getElementById("add-verse-button").addEventListener("click", function()
       renderCard(newData);
       saveCards();
     });
+});
+
+let zoomLevel = 1;
+
+function updateWorldTransform() {
+  world.style.transform = "translate(" + offsetX + "px, " + offsetY + "px) scale(" + zoomLevel + ")";
+}
+
+viewport.addEventListener("wheel", function(event) {
+  event.preventDefault();
+
+  if (event.deltaY < 0) {
+    zoomLevel += 0.1;
+  } else {
+    zoomLevel -= 0.1;
+  }
+
+  if (zoomLevel < 0.2) { zoomLevel = 0.2; }
+  if (zoomLevel > 3) { zoomLevel = 3; }
+
+  updateWorldTransform();
 });
