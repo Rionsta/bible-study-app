@@ -15,6 +15,20 @@ if (localStorage.getItem("theme") === "gaming-theme") {
 const world = document.getElementById("canvas-world");
 const viewport = document.getElementById("canvas-viewport");
 
+let bibleData = {};
+const openBibleButton = document.getElementById("open-bible-button");
+openBibleButton.disabled = true;
+
+fetch("bible-data.json")
+  .then(function(response) {
+    return response.json();
+  })
+  .then(function(data) {
+    bibleData = data;
+    openBibleButton.disabled = false;
+    cardsData.forEach(renderCard);
+  });
+
 let isDragging = false;
 let startX, startY;
 let offsetX = 0, offsetY = 0;
@@ -86,7 +100,73 @@ function renderCard(data) {
     });
 
     card.appendChild(textarea);
+  } else if (data.type === "bible-reader") {
+  card.classList.add("bible-reader");
+
+  const bookSelect = document.createElement("select");
+  Object.keys(bibleData).forEach(function(bookName) {
+    const option = document.createElement("option");
+    option.value = bookName;
+    option.textContent = bookName;
+    bookSelect.appendChild(option);
+  });
+
+  const chapterSelect = document.createElement("select");
+  const textDisplay = document.createElement("div");
+  textDisplay.className = "reader-text";
+
+  function renderChapter(book, chapter) {
+  textDisplay.innerHTML = "";
+  const verses = bibleData[book][chapter];
+  Object.keys(verses).forEach(function(verseNumber) {
+    const versePara = document.createElement("p");
+    versePara.textContent = verseNumber + " " + verses[verseNumber];
+    versePara.className = "pullable-verse";
+
+    versePara.addEventListener("mousedown", function(event) {
+      event.stopPropagation();
+    });
+
+    versePara.addEventListener("click", function() {
+      const reference = book + " " + chapter + ":" + verseNumber;
+      addVerseCard(reference, verses[verseNumber]);
+    });
+
+    textDisplay.appendChild(versePara);
+  });
+}
+
+  function populateChapters(book) {
+    chapterSelect.innerHTML = "";
+    Object.keys(bibleData[book]).forEach(function(chapterNumber) {
+      const option = document.createElement("option");
+      option.value = chapterNumber;
+      option.textContent = "Chapter " + chapterNumber;
+      chapterSelect.appendChild(option);
+    });
+    renderChapter(book, chapterSelect.value);
   }
+
+  bookSelect.addEventListener("mousedown", function(event) {
+    event.stopPropagation();
+  });
+  bookSelect.addEventListener("change", function() {
+    populateChapters(bookSelect.value);
+  });
+
+  chapterSelect.addEventListener("mousedown", function(event) {
+    event.stopPropagation();
+  });
+  chapterSelect.addEventListener("change", function() {
+    renderChapter(bookSelect.value, chapterSelect.value);
+  });
+
+  card.appendChild(bookSelect);
+  card.appendChild(chapterSelect);
+  card.appendChild(textDisplay);
+
+  populateChapters(bookSelect.value);
+}
 
   const deleteButton = document.createElement("button");
 deleteButton.className = "delete-button";
@@ -116,8 +196,6 @@ card.appendChild(deleteButton);
 
   world.appendChild(card);
 }
-
-cardsData.forEach(renderCard);
 
 document.addEventListener("mousemove", function(event) {
   if (activeCard) {
@@ -149,29 +227,13 @@ document.getElementById("add-card-button").addEventListener("click", function() 
 document.getElementById("add-verse-button").addEventListener("click", function() {
   const reference = document.getElementById("verse-input").value;
 
-  fetch("https://bible-api.com/" + encodeURIComponent(reference))
-    .then(function(response) {
-      return response.json();
-    })
-    .then(function(data) {
-      if (data.error) {
-        alert("Couldn't find that verse. Check the reference and try again.");
-        return;
-      }
-
-      newCardCount++;
-      const newData = {
-        id: "verse-card-" + newCardCount,
-        type: "scripture",
-        reference: data.reference,
-        text: data.text,
-        left: 100 + Math.random() * 200,
-        top: 300 + Math.random() * 100
-      };
-      cardsData.push(newData);
-      renderCard(newData);
-      saveCards();
-    });
+  getVerseData(reference).then(function(result) {
+    if (!result) {
+      alert("Couldn't find that verse. Check the reference and try again.");
+      return;
+    }
+    addVerseCard(result.reference, result.text);
+  });
 });
 
 let zoomLevel = 1;
@@ -181,8 +243,9 @@ function updateWorldTransform() {
 }
 
 viewport.addEventListener("wheel", function(event) {
-  event.preventDefault();
-
+  if (event.target.closest(".card")) {
+    return;
+  }
   if (event.deltaY < 0) {
     zoomLevel += 0.1;
   } else {
@@ -193,4 +256,70 @@ viewport.addEventListener("wheel", function(event) {
   if (zoomLevel > 3) { zoomLevel = 3; }
 
   updateWorldTransform();
+});
+
+function findOfflineVerse(reference) {
+  const match = reference.match(/^(.+) (\d+):(\d+)$/);
+  if (!match) {
+    return null;
+  }
+
+  const book = match[1];
+  const chapter = match[2];
+  const verse = match[3];
+
+  if (bibleData[book] && bibleData[book][chapter] && bibleData[book][chapter][verse]) {
+    return {
+      reference: reference,
+      text: bibleData[book][chapter][verse]
+    };
+  }
+
+  return null;
+}
+
+function addVerseCard(reference, text) {
+  newCardCount++;
+  const newData = {
+    id: "verse-card-" + newCardCount,
+    type: "scripture",
+    reference: reference,
+    text: text,
+    left: 100 + Math.random() * 200,
+    top: 300 + Math.random() * 100
+  };
+  cardsData.push(newData);
+  renderCard(newData);
+  saveCards();
+}
+
+function getVerseData(reference) {
+  const offlineMatch = findOfflineVerse(reference);
+  if (offlineMatch) {
+    return Promise.resolve(offlineMatch);
+  }
+
+  return fetch("https://bible-api.com/" + encodeURIComponent(reference))
+    .then(function(response) {
+      return response.json();
+    })
+    .then(function(data) {
+      if (data.error) {
+        return null;
+      }
+      return { reference: data.reference, text: data.text };
+    });
+}
+
+document.getElementById("open-bible-button").addEventListener("click", function() {
+  newCardCount++;
+  const newData = {
+    id: "bible-reader-" + newCardCount,
+    type: "bible-reader",
+    left: 150,
+    top: 150
+  };
+  cardsData.push(newData);
+  renderCard(newData);
+  saveCards();
 });
