@@ -181,3 +181,31 @@ document.getElementById("add-card-button").addEventListener("click", function() 
   renderCard(newData);
   saveCards();
 });
+
+document.getElementById("add-verse-button").addEventListener("click", function() {
+  const reference = document.getElementById("verse-input").value;
+
+  fetch("https://bible-api.com/" + encodeURIComponent(reference))
+    .then(function(response) {
+      return response.json();
+    })
+    .then(function(data) {
+      if (data.error) {
+        alert("Couldn't find that verse. Check the reference and try again.");
+        return;
+      }
+
+      newCardCount++;
+      const newData = {
+        id: "verse-card-" + newCardCount,
+        type: "scripture",
+        reference: data.reference,
+        text: data.text,
+        left: 100 + Math.random() * 200,
+        top: 300 + Math.random() * 100
+      };
+      cardsData.push(newData);
+      renderCard(newData);
+      saveCards();
+    });
+});
