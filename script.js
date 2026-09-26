@@ -31,7 +31,8 @@ fetch("bible-data.json")
 
 let isDragging = false;
 let startX, startY;
-let offsetX = 0, offsetY = 0;
+let offsetX = parseFloat(localStorage.getItem("offsetX")) || 0;
+let offsetY = parseFloat(localStorage.getItem("offsetY")) || 0;
 
 viewport.addEventListener("mousedown", function(event) {
   isDragging = true;
@@ -49,6 +50,8 @@ viewport.addEventListener("mousemove", function(event) {
 
 viewport.addEventListener("mouseup", function() {
   isDragging = false;
+  localStorage.setItem("offsetX", offsetX);
+  localStorage.setItem("offsetY", offsetY);
 });
 
 document.addEventListener("mousemove", function(event) {
@@ -168,6 +171,22 @@ card.appendChild(cardContent);
   });
 }
 
+  const lockButton = document.createElement("button");
+lockButton.className = "lock-toggle";
+lockButton.textContent = data.locked ? "🔒" : "🔓";
+
+lockButton.addEventListener("mousedown", function(event) {
+  event.stopPropagation();
+});
+
+lockButton.addEventListener("click", function() {
+  data.locked = !data.locked;
+  lockButton.textContent = data.locked ? "🔒" : "🔓";
+  saveCards();
+});
+
+card.appendChild(lockButton);
+
   function populateChapters(book) {
     chapterSelect.innerHTML = "";
     Object.keys(bibleData[book]).forEach(function(chapterNumber) {
@@ -219,6 +238,7 @@ deleteButton.addEventListener("click", function() {
 card.appendChild(deleteButton);
 
   card.addEventListener("mousedown", function(event) {
+    if (data.locked) { return; }
     event.stopPropagation();
     activeCard = card;
     activeCardData = data;

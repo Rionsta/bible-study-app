@@ -129,3 +129,13 @@ body.gaming-theme {
   cursor: nwse-resize;
   background: #a89f8c;
 }
+
+.lock-toggle {
+  position: absolute;
+  top: 4px;
+  right: 28px;
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-size: 14px;
+}
