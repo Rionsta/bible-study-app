@@ -51,6 +51,25 @@ viewport.addEventListener("mouseup", function() {
   isDragging = false;
 });
 
+document.addEventListener("mousemove", function(event) {
+  if (activeResizeCard) {
+    const newWidth = startWidth + (event.clientX - resizeStartX);
+    const newHeight = startHeight + (event.clientY - resizeStartY);
+    if (newWidth > 100) { activeResizeCard.style.width = newWidth + "px"; }
+    if (newHeight > 80) { activeResizeCard.style.height = newHeight + "px"; }
+  }
+});
+
+document.addEventListener("mouseup", function() {
+  if (activeResizeCard && activeResizeCardData) {
+    activeResizeCardData.width = parseInt(activeResizeCard.style.width);
+    activeResizeCardData.height = parseInt(activeResizeCard.style.height);
+    saveCards();
+  }
+  activeResizeCard = null;
+  activeResizeCardData = null;
+});
+
 let cardsData = [
   { id: "genesis-card", type: "scripture", reference: "Genesis 1:1", text: "In the beginning, God created the heavens and the earth.", left: 50, top: 50 },
   { id: "psalm-card", type: "scripture", reference: "Psalm 23:1", text: "The Lord is my shepherd; I shall not want.", left: 350, top: 50 },
@@ -69,6 +88,12 @@ function saveCards() {
 let activeCard = null;
 let activeCardData = null;
 let cardStartX, cardStartY;
+let activeResizeCard = null;
+let activeResizeCardData = null;
+let resizeStartX = 0;
+let resizeStartY = 0;
+let startWidth = 0;
+let startHeight = 0;
 
 function renderCard(data) {
   const card = document.createElement("div");
@@ -77,14 +102,21 @@ function renderCard(data) {
   card.style.left = data.left + "px";
   card.style.top = data.top + "px";
 
+  if (data.width) { card.style.width = data.width + "px"; }
+if (data.height) { card.style.height = data.height + "px"; }
+
+const cardContent = document.createElement("div");
+cardContent.className = "card-content";
+card.appendChild(cardContent);
+
   if (data.type === "scripture") {
     const heading = document.createElement("h2");
     heading.textContent = data.reference;
-    card.appendChild(heading);
+    cardContent.appendChild(heading);
 
     const paragraph = document.createElement("p");
     paragraph.textContent = data.text;
-    card.appendChild(paragraph);
+    cardContent.appendChild(paragraph);
   } else if (data.type === "note") {
     const textarea = document.createElement("textarea");
     textarea.placeholder = "...";
@@ -99,7 +131,7 @@ function renderCard(data) {
       saveCards();
     });
 
-    card.appendChild(textarea);
+    cardContent.appendChild(textarea);
   } else if (data.type === "bible-reader") {
   card.classList.add("bible-reader");
 
@@ -161,9 +193,9 @@ function renderCard(data) {
     renderChapter(bookSelect.value, chapterSelect.value);
   });
 
-  card.appendChild(bookSelect);
-  card.appendChild(chapterSelect);
-  card.appendChild(textDisplay);
+  cardContent.appendChild(bookSelect);
+  cardContent.appendChild(chapterSelect);
+  cardContent.appendChild(textDisplay);
 
   populateChapters(bookSelect.value);
 }
@@ -195,6 +227,21 @@ card.appendChild(deleteButton);
   });
 
   world.appendChild(card);
+
+  const resizeHandle = document.createElement("div");
+resizeHandle.className = "resize-handle";
+
+resizeHandle.addEventListener("mousedown", function(event) {
+  event.stopPropagation();
+  activeResizeCard = card;
+  activeResizeCardData = data;
+  resizeStartX = event.clientX;
+  resizeStartY = event.clientY;
+  startWidth = card.offsetWidth;
+  startHeight = card.offsetHeight;
+});
+
+card.appendChild(resizeHandle);
 }
 
 document.addEventListener("mousemove", function(event) {
@@ -236,7 +283,7 @@ document.getElementById("add-verse-button").addEventListener("click", function()
   });
 });
 
-let zoomLevel = 1;
+let zoomLevel = parseFloat(localStorage.getItem("zoomLevel")) || 1;
 
 function updateWorldTransform() {
   world.style.transform = "translate(" + offsetX + "px, " + offsetY + "px) scale(" + zoomLevel + ")";
@@ -255,6 +302,7 @@ viewport.addEventListener("wheel", function(event) {
   if (zoomLevel < 0.2) { zoomLevel = 0.2; }
   if (zoomLevel > 3) { zoomLevel = 3; }
 
+  localStorage.setItem("zoomLevel", zoomLevel);
   updateWorldTransform();
 });
 
@@ -323,3 +371,5 @@ document.getElementById("open-bible-button").addEventListener("click", function(
   renderCard(newData);
   saveCards();
 });
+
+updateWorldTransform();
