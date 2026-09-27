@@ -139,3 +139,9 @@ body.gaming-theme {
   cursor: pointer;
   font-size: 14px;
 }
+
+.map-image {
+  max-width: 100%;
+  display: block;
+  margin-top: 8px;
+}

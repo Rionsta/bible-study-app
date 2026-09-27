@@ -34,6 +34,21 @@ let startX, startY;
 let offsetX = parseFloat(localStorage.getItem("offsetX")) || 0;
 let offsetY = parseFloat(localStorage.getItem("offsetY")) || 0;
 
+const bibleMaps = [
+  {
+    group: "Genesis & Patriarchs",
+    maps: [
+      { name: "The Ancient Near East & Fertile Crescent", src: "images/maps/ancient-near-east.jpg" }
+    ]
+  },
+  {
+    group: "The Gospels & Life of Christ",
+    maps: [
+      { name: "Palestine in the Time of Jesus", src: "images/maps/palestine-time-of-jesus.jpg" }
+    ]
+  }
+];
+
 viewport.addEventListener("mousedown", function(event) {
   isDragging = true;
   startX = event.clientX - offsetX;
@@ -217,6 +232,44 @@ card.appendChild(lockButton);
   cardContent.appendChild(textDisplay);
 
   populateChapters(bookSelect.value);
+} else if (data.type === "map") {
+  const mapSelect = document.createElement("select");
+
+  bibleMaps.forEach(function(group) {
+    const optgroup = document.createElement("optgroup");
+    optgroup.label = group.group;
+
+    group.maps.forEach(function(map) {
+      const option = document.createElement("option");
+      option.value = map.src;
+      option.textContent = map.name;
+      optgroup.appendChild(option);
+    });
+
+    mapSelect.appendChild(optgroup);
+  });
+
+  if (!data.mapSrc) {
+    data.mapSrc = bibleMaps[0].maps[0].src;
+  }
+  mapSelect.value = data.mapSrc;
+
+  const mapImage = document.createElement("img");
+  mapImage.className = "map-image";
+  mapImage.src = data.mapSrc;
+
+  mapSelect.addEventListener("mousedown", function(event) {
+    event.stopPropagation();
+  });
+
+  mapSelect.addEventListener("change", function() {
+    data.mapSrc = mapSelect.value;
+    mapImage.src = mapSelect.value;
+    saveCards();
+  });
+
+  cardContent.appendChild(mapSelect);
+  cardContent.appendChild(mapImage);
 }
 
   const deleteButton = document.createElement("button");
@@ -286,6 +339,19 @@ let newCardCount = 0;
 document.getElementById("add-card-button").addEventListener("click", function() {
   newCardCount++;
   const newData = { id: "note-card-" + newCardCount, type: "note", text: "", left: 100, top: 300 };
+  cardsData.push(newData);
+  renderCard(newData);
+  saveCards();
+});
+
+document.getElementById("add-map-button").addEventListener("click", function() {
+  newCardCount++;
+  const newData = {
+    id: "map-card-" + newCardCount,
+    type: "map",
+    left: 150,
+    top: 150
+  };
   cardsData.push(newData);
   renderCard(newData);
   saveCards();
