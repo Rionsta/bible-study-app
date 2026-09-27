@@ -1,12 +1,38 @@
-body {
-  font-family: Arial, sans-serif;
-  background-color: #f4f1ea;
-  text-align: center;
-  margin-top: 40px;
+html, body {
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
 }
 
-  main {
-  display: block;
+body {
+  display: flex;
+  flex-direction: column;
+}
+
+main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+header {
+  padding: 24px 30px;
+}
+
+#canvas-viewport {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+  min-height: 0;
+}
+
+#toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 10px;
+  justify-content: center;
 }
 
 .card {
@@ -43,7 +69,6 @@ body.gaming-theme {
 
 #canvas-viewport {
   width: 100%;
-  height: 100vh;
   overflow: hidden;
   position: relative;
 }
@@ -145,3 +170,25 @@ body.gaming-theme {
   display: block;
   margin-top: 8px;
 }
+
+.card {
+  z-index: 1;
+}
+
+.zone {
+  z-index: 0;
+  border: 2px dashed;
+  border-radius: 8px;
+}
+
+.zone-label {
+  font-weight: 600;
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  opacity: 0.75;
+}
+
+.zone.observation { background: rgba(255, 221, 120, 0.35); border-color: #b8922b; }
+.zone.interpretation { background: rgba(140, 190, 255, 0.35); border-color: #2f6fc4; }
+.zone.application { background: rgba(150, 225, 165, 0.35); border-color: #339650; }

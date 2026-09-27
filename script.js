@@ -270,6 +270,14 @@ card.appendChild(lockButton);
 
   cardContent.appendChild(mapSelect);
   cardContent.appendChild(mapImage);
+} else if (data.type === "zone") {
+  card.classList.add("zone");
+  card.classList.add(data.label.toLowerCase());
+
+  const zoneLabel = document.createElement("div");
+  zoneLabel.className = "zone-label";
+  zoneLabel.textContent = data.label;
+  cardContent.appendChild(zoneLabel);
 }
 
   const deleteButton = document.createElement("button");
@@ -459,3 +467,29 @@ document.getElementById("open-bible-button").addEventListener("click", function(
 });
 
 updateWorldTransform();
+
+function addZoneCard(label) {
+  newCardCount++;
+  const newData = {
+    id: "zone-card-" + newCardCount,
+    type: "zone",
+    label: label,
+    left: 150,
+    top: 150,
+    width: 400,
+    height: 300
+  };
+  cardsData.push(newData);
+  renderCard(newData);
+  saveCards();
+}
+
+document.getElementById("add-observation-button").addEventListener("click", function() {
+  addZoneCard("Observation");
+});
+document.getElementById("add-interpretation-button").addEventListener("click", function() {
+  addZoneCard("Interpretation");
+});
+document.getElementById("add-application-button").addEventListener("click", function() {
+  addZoneCard("Application");
+});
