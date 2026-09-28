@@ -1,3 +1,154 @@
+const APP_STATE_KEY = "appState";
+
+function loadAppState() {
+  const saved = localStorage.getItem(APP_STATE_KEY);
+  if (saved) {
+    return JSON.parse(saved);
+  }
+
+// No new-format save yet — pull in whatever old data exists so it isn't lost
+const oldCards = localStorage.getItem("cardsData");
+const oldZoom = parseFloat(localStorage.getItem("zoomLevel")) || 1;
+const oldOffsetX = parseFloat(localStorage.getItem("offsetX")) || 0;
+const oldOffsetY = parseFloat(localStorage.getItem("offsetY")) || 0;
+
+  const defaultCards = [
+    { id: "genesis-card", type: "scripture", reference: "Genesis 1:1", text: "In the beginning, God created the heavens and the earth.", left: 50, top: 50 },
+    { id: "psalm-card", type: "scripture", reference: "Psalm 23:1", text: "The Lord is my shepherd; I shall not want.", left: 350, top: 50 },
+    { id: "john-card", type: "scripture", reference: "John 3:16", text: "For God so loved the world, that he gave his only Son.", left: 650, top: 50 }
+  ];
+
+  return {
+    activeBoardId: "board-1",
+    boards: {
+      "board-1": {
+        id: "board-1",
+        name: "My First Board",
+        pan: { offsetX: oldOffsetX, offsetY: oldOffsetY },
+        zoom: oldZoom,
+        cards: oldCards ? JSON.parse(oldCards) : defaultCards,
+        connections: []
+      }
+    },
+    highlights: {},
+    globalHud: {
+      prayerRequests: [],
+      questions: [],
+      dailyQuests: []
+    }
+  };
+}
+
+function saveAppState() {
+  localStorage.setItem(APP_STATE_KEY, JSON.stringify(appState));
+}
+
+let appState = loadAppState();
+
+function getActiveBoard() {
+  return appState.boards[appState.activeBoardId];
+}
+
+function renderGlobalHud() {
+  const list = document.getElementById("hud-list");
+  list.innerHTML = "";
+
+  appState.globalHud.prayerRequests.forEach(function(item) {
+    const li = document.createElement("li");
+    li.textContent = "🙏 " + item.text;
+    list.appendChild(li);
+  });
+
+  appState.globalHud.questions.forEach(function(item) {
+    const li = document.createElement("li");
+    li.textContent = "❓ " + item.text;
+    list.appendChild(li);
+  });
+}
+
+document.getElementById("add-prayer-button").addEventListener("click", function() {
+  const input = document.getElementById("hud-input");
+  if (!input.value) { return; }
+
+  appState.globalHud.prayerRequests.push({
+    id: "prayer-" + Date.now(),
+    text: input.value
+  });
+
+  input.value = "";
+  saveAppState();
+  renderGlobalHud();
+});
+
+document.getElementById("add-question-button").addEventListener("click", function() {
+  const input = document.getElementById("hud-input");
+  if (!input.value) { return; }
+
+  appState.globalHud.questions.push({
+    id: "question-" + Date.now(),
+    text: input.value
+  });
+
+  input.value = "";
+  saveAppState();
+  renderGlobalHud();
+});
+
+function renderBoard() {
+  world.innerHTML = "";
+
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.id = "connections-svg";
+  svg.style.position = "absolute";
+  svg.style.top = "0";
+  svg.style.left = "0";
+  svg.style.overflow = "visible";
+  svg.style.pointerEvents = "none";
+  world.appendChild(svg);
+
+  getActiveBoard().cards.forEach(renderCard);
+  updateWorldTransform();
+  renderConnections();
+}
+
+function switchBoard(boardId) {
+  appState.activeBoardId = boardId;
+  renderBoard();
+  renderBoardSwitcher();
+  saveAppState();
+}
+
+function randomOffset() {
+  return { x: Math.random() * 200, y: Math.random() * 100 };
+}
+
+let activeTool = "select";
+
+function setActiveTool(tool) {
+  activeTool = tool;
+  pendingConnectionCardId = null;
+  document.querySelectorAll(".tool-button").forEach(function(button) {
+    button.classList.remove("active");
+  });
+  document.getElementById("tool-" + tool).classList.add("active");
+}
+
+document.getElementById("tool-select").addEventListener("click", function() {
+  setActiveTool("select");
+});
+document.getElementById("tool-highlight").addEventListener("click", function() {
+  setActiveTool("highlight");
+});
+
+function toggleHighlight(verseId) {
+  if (appState.highlights[verseId]) {
+    delete appState.highlights[verseId];
+  } else {
+    appState.highlights[verseId] = { color: "yellow" };
+  }
+  saveAppState();
+}
+
 document.getElementById("theme-toggle").addEventListener("click", function() {
   document.body.classList.toggle("gaming-theme");
 
@@ -26,13 +177,11 @@ fetch("bible-data.json")
   .then(function(data) {
     bibleData = data;
     openBibleButton.disabled = false;
-    cardsData.forEach(renderCard);
+    renderBoard();
   });
 
 let isDragging = false;
 let startX, startY;
-let offsetX = parseFloat(localStorage.getItem("offsetX")) || 0;
-let offsetY = parseFloat(localStorage.getItem("offsetY")) || 0;
 
 const bibleMaps = [
   {
@@ -51,22 +200,21 @@ const bibleMaps = [
 
 viewport.addEventListener("mousedown", function(event) {
   isDragging = true;
-  startX = event.clientX - offsetX;
-  startY = event.clientY - offsetY;
+  startX = event.clientX - getActiveBoard().pan.offsetX;
+  startY = event.clientY - getActiveBoard().pan.offsetY;
 });
 
 viewport.addEventListener("mousemove", function(event) {
   if (isDragging) {
-    offsetX = event.clientX - startX;
-    offsetY = event.clientY - startY;
+    getActiveBoard().pan.offsetX = event.clientX - startX;
+    getActiveBoard().pan.offsetY = event.clientY - startY;
     updateWorldTransform();
   }
 });
 
 viewport.addEventListener("mouseup", function() {
   isDragging = false;
-  localStorage.setItem("offsetX", offsetX);
-  localStorage.setItem("offsetY", offsetY);
+  saveAppState();
 });
 
 document.addEventListener("mousemove", function(event) {
@@ -75,6 +223,7 @@ document.addEventListener("mousemove", function(event) {
     const newHeight = startHeight + (event.clientY - resizeStartY);
     if (newWidth > 100) { activeResizeCard.style.width = newWidth + "px"; }
     if (newHeight > 80) { activeResizeCard.style.height = newHeight + "px"; }
+    renderConnections();
   }
 });
 
@@ -82,26 +231,11 @@ document.addEventListener("mouseup", function() {
   if (activeResizeCard && activeResizeCardData) {
     activeResizeCardData.width = parseInt(activeResizeCard.style.width);
     activeResizeCardData.height = parseInt(activeResizeCard.style.height);
-    saveCards();
+    saveAppState();
   }
   activeResizeCard = null;
   activeResizeCardData = null;
 });
-
-let cardsData = [
-  { id: "genesis-card", type: "scripture", reference: "Genesis 1:1", text: "In the beginning, God created the heavens and the earth.", left: 50, top: 50 },
-  { id: "psalm-card", type: "scripture", reference: "Psalm 23:1", text: "The Lord is my shepherd; I shall not want.", left: 350, top: 50 },
-  { id: "john-card", type: "scripture", reference: "John 3:16", text: "For God so loved the world, that he gave his only Son.", left: 650, top: 50 }
-];
-
-const savedData = localStorage.getItem("cardsData");
-if (savedData) {
-  cardsData = JSON.parse(savedData);
-}
-
-function saveCards() {
-  localStorage.setItem("cardsData", JSON.stringify(cardsData));
-}
 
 let activeCard = null;
 let activeCardData = null;
@@ -146,7 +280,7 @@ card.appendChild(cardContent);
 
     textarea.addEventListener("input", function() {
       data.text = textarea.value;
-      saveCards();
+      saveAppState();
     });
 
     cardContent.appendChild(textarea);
@@ -169,15 +303,27 @@ card.appendChild(cardContent);
   textDisplay.innerHTML = "";
   const verses = bibleData[book][chapter];
   Object.keys(verses).forEach(function(verseNumber) {
+    const verseId = book + "." + chapter + "." + verseNumber;
+
     const versePara = document.createElement("p");
     versePara.textContent = verseNumber + " " + verses[verseNumber];
     versePara.className = "pullable-verse";
+
+    if (appState.highlights[verseId]) {
+      versePara.classList.add("highlighted-verse");
+    }
 
     versePara.addEventListener("mousedown", function(event) {
       event.stopPropagation();
     });
 
     versePara.addEventListener("click", function() {
+      if (activeTool === "highlight") {
+        toggleHighlight(verseId);
+        renderChapter(book, chapter);
+        return;
+      }
+
       const reference = book + " " + chapter + ":" + verseNumber;
       addVerseCard(reference, verses[verseNumber]);
     });
@@ -197,41 +343,46 @@ lockButton.addEventListener("mousedown", function(event) {
 lockButton.addEventListener("click", function() {
   data.locked = !data.locked;
   lockButton.textContent = data.locked ? "🔒" : "🔓";
-  saveCards();
+  saveAppState();
 });
 
 card.appendChild(lockButton);
 
-  function populateChapters(book) {
-    chapterSelect.innerHTML = "";
-    Object.keys(bibleData[book]).forEach(function(chapterNumber) {
-      const option = document.createElement("option");
-      option.value = chapterNumber;
-      option.textContent = "Chapter " + chapterNumber;
-      chapterSelect.appendChild(option);
-    });
-    renderChapter(book, chapterSelect.value);
-  }
-
-  bookSelect.addEventListener("mousedown", function(event) {
-    event.stopPropagation();
-  });
-  bookSelect.addEventListener("change", function() {
-    populateChapters(bookSelect.value);
+  function populateChapters(book, selectedChapter) {
+  chapterSelect.innerHTML = "";
+  Object.keys(bibleData[book]).forEach(function(chapterNumber) {
+    const option = document.createElement("option");
+    option.value = chapterNumber;
+    option.textContent = "Chapter " + chapterNumber;
+    chapterSelect.appendChild(option);
   });
 
-  chapterSelect.addEventListener("mousedown", function(event) {
-    event.stopPropagation();
-  });
-  chapterSelect.addEventListener("change", function() {
-    renderChapter(bookSelect.value, chapterSelect.value);
-  });
+  chapterSelect.value = selectedChapter || chapterSelect.value;
+  renderChapter(book, chapterSelect.value);
+}
 
-  cardContent.appendChild(bookSelect);
-  cardContent.appendChild(chapterSelect);
-  cardContent.appendChild(textDisplay);
-
+bookSelect.addEventListener("change", function() {
+  data.book = bookSelect.value;
+  data.chapter = null;
+  saveAppState();
   populateChapters(bookSelect.value);
+});
+
+chapterSelect.addEventListener("change", function() {
+  data.chapter = chapterSelect.value;
+  saveAppState();
+  renderChapter(bookSelect.value, chapterSelect.value);
+});
+
+cardContent.appendChild(bookSelect);
+cardContent.appendChild(chapterSelect);
+cardContent.appendChild(textDisplay);
+
+if (data.book) {
+  bookSelect.value = data.book;
+}
+populateChapters(bookSelect.value, data.chapter);
+
 } else if (data.type === "map") {
   const mapSelect = document.createElement("select");
 
@@ -265,7 +416,7 @@ card.appendChild(lockButton);
   mapSelect.addEventListener("change", function() {
     data.mapSrc = mapSelect.value;
     mapImage.src = mapSelect.value;
-    saveCards();
+    saveAppState();
   });
 
   cardContent.appendChild(mapSelect);
@@ -290,10 +441,29 @@ deleteButton.addEventListener("mousedown", function(event) {
 
 deleteButton.addEventListener("click", function() {
   card.remove();
-  cardsData = cardsData.filter(function(c) {
+  getActiveBoard().cards = getActiveBoard().cards.filter(function(c) {
     return c.id !== data.id;
   });
-  saveCards();
+  getActiveBoard().connections = getActiveBoard().connections.filter(function(connection) {
+    return connection.cardAId !== data.id && connection.cardBId !== data.id;
+  });
+  saveAppState();
+  renderConnections();
+});
+
+card.addEventListener("mousedown", function(event) {
+  if (data.locked) { return; }
+  event.stopPropagation();
+
+  if (activeTool === "connect") {
+    handleConnectClick(data.id);
+    return;
+  }
+
+  activeCard = card;
+  activeCardData = data;
+  cardStartX = event.clientX - card.offsetLeft;
+  cardStartY = event.clientY - card.offsetTop;
 });
 
 card.appendChild(deleteButton);
@@ -329,6 +499,7 @@ document.addEventListener("mousemove", function(event) {
   if (activeCard) {
     activeCard.style.left = (event.clientX - cardStartX) + "px";
     activeCard.style.top = (event.clientY - cardStartY) + "px";
+    renderConnections();
   }
 });
 
@@ -336,7 +507,7 @@ document.addEventListener("mouseup", function() {
   if (activeCard && activeCardData) {
     activeCardData.left = parseInt(activeCard.style.left);
     activeCardData.top = parseInt(activeCard.style.top);
-    saveCards();
+    saveAppState();
   }
   activeCard = null;
   activeCardData = null;
@@ -346,23 +517,25 @@ let newCardCount = 0;
 
 document.getElementById("add-card-button").addEventListener("click", function() {
   newCardCount++;
-  const newData = { id: "note-card-" + newCardCount, type: "note", text: "", left: 100, top: 300 };
-  cardsData.push(newData);
+  const offset = randomOffset();
+  const newData = { id: "note-card-" + Date.now(), type: "note", text: "", left: 150 + offset.x, top: 150 + offset.y };
+  getActiveBoard().cards.push(newData);
   renderCard(newData);
-  saveCards();
+  saveAppState();
 });
 
 document.getElementById("add-map-button").addEventListener("click", function() {
   newCardCount++;
+  const offset = randomOffset();
   const newData = {
-    id: "map-card-" + newCardCount,
+    id: "map-card-" + Date.now(),
     type: "map",
-    left: 150,
-    top: 150
+    left: 150 + offset.x,
+    top: 150 + offset.y
   };
-  cardsData.push(newData);
+  getActiveBoard().cards.push(newData);
   renderCard(newData);
-  saveCards();
+  saveAppState();
 });
 
 document.getElementById("add-verse-button").addEventListener("click", function() {
@@ -377,10 +550,8 @@ document.getElementById("add-verse-button").addEventListener("click", function()
   });
 });
 
-let zoomLevel = parseFloat(localStorage.getItem("zoomLevel")) || 1;
-
 function updateWorldTransform() {
-  world.style.transform = "translate(" + offsetX + "px, " + offsetY + "px) scale(" + zoomLevel + ")";
+  world.style.transform = "translate(" + getActiveBoard().pan.offsetX + "px, " + getActiveBoard().pan.offsetY + "px) scale(" + getActiveBoard().zoom + ")";
 }
 
 viewport.addEventListener("wheel", function(event) {
@@ -388,15 +559,15 @@ viewport.addEventListener("wheel", function(event) {
     return;
   }
   if (event.deltaY < 0) {
-    zoomLevel += 0.1;
+    getActiveBoard().zoom += 0.1;
   } else {
-    zoomLevel -= 0.1;
+    getActiveBoard().zoom -= 0.1;
   }
 
-  if (zoomLevel < 0.2) { zoomLevel = 0.2; }
-  if (zoomLevel > 3) { zoomLevel = 3; }
+  if (getActiveBoard().zoom < 0.2) { getActiveBoard().zoom = 0.2; }
+  if (getActiveBoard().zoom > 3) { getActiveBoard().zoom = 3; }
 
-  localStorage.setItem("zoomLevel", zoomLevel);
+  saveAppState();
   updateWorldTransform();
 });
 
@@ -423,16 +594,16 @@ function findOfflineVerse(reference) {
 function addVerseCard(reference, text) {
   newCardCount++;
   const newData = {
-    id: "verse-card-" + newCardCount,
+    id: "verse-card-" + Date.now(),
     type: "scripture",
     reference: reference,
     text: text,
     left: 100 + Math.random() * 200,
     top: 300 + Math.random() * 100
   };
-  cardsData.push(newData);
+  getActiveBoard().cards.push(newData);
   renderCard(newData);
-  saveCards();
+  saveAppState();
 }
 
 function getVerseData(reference) {
@@ -455,33 +626,36 @@ function getVerseData(reference) {
 
 document.getElementById("open-bible-button").addEventListener("click", function() {
   newCardCount++;
+  const offset = randomOffset();
   const newData = {
-    id: "bible-reader-" + newCardCount,
+    id: "bible-reader-" + Date.now(),
     type: "bible-reader",
-    left: 150,
-    top: 150
+    left: 150 + offset.x,
+    top: 150 + offset.y
   };
-  cardsData.push(newData);
+  getActiveBoard().cards.push(newData);
   renderCard(newData);
-  saveCards();
+  saveAppState();
 });
 
 updateWorldTransform();
+renderBoardSwitcher();
 
 function addZoneCard(label) {
   newCardCount++;
+  const offset = randomOffset();
   const newData = {
-    id: "zone-card-" + newCardCount,
+    id: "zone-card-" + Date.now(),
     type: "zone",
     label: label,
-    left: 150,
-    top: 150,
+    left: 150 + offset.x,
+    top: 150 + offset.y,
     width: 400,
     height: 300
   };
-  cardsData.push(newData);
+  getActiveBoard().cards.push(newData);
   renderCard(newData);
-  saveCards();
+  saveAppState();
 }
 
 document.getElementById("add-observation-button").addEventListener("click", function() {
@@ -493,3 +667,97 @@ document.getElementById("add-interpretation-button").addEventListener("click", f
 document.getElementById("add-application-button").addEventListener("click", function() {
   addZoneCard("Application");
 });
+document.getElementById("add-board-button").addEventListener("click", function() {
+  const name = prompt("Name this board:");
+  if (name) {
+    createBoard(name);
+  }
+});
+document.getElementById("board-switcher").addEventListener("change", function() {
+  switchBoard(this.value);
+});
+
+function createBoard(name) {
+  const newId = "board-" + Date.now();
+
+  appState.boards[newId] = {
+    id: newId,
+    name: name,
+    pan: { offsetX: 0, offsetY: 0 },
+    zoom: 1,
+    cards: [],
+    connections: []
+  };
+
+  switchBoard(newId);
+}
+
+function renderBoardSwitcher() {
+  const switcher = document.getElementById("board-switcher");
+  switcher.innerHTML = "";
+
+  Object.values(appState.boards).forEach(function(board) {
+    const option = document.createElement("option");
+    option.value = board.id;
+    option.textContent = board.name;
+    switcher.appendChild(option);
+  });
+
+  switcher.value = appState.activeBoardId;
+}
+
+let pendingConnectionCardId = null;
+
+document.getElementById("tool-connect").addEventListener("click", function() {
+  setActiveTool("connect");
+});
+
+function handleConnectClick(cardId) {
+  if (!pendingConnectionCardId) {
+    pendingConnectionCardId = cardId;
+    return;
+  }
+
+  if (pendingConnectionCardId === cardId) {
+    pendingConnectionCardId = null;
+    return;
+  }
+
+  getActiveBoard().connections.push({
+    id: "connection-" + Date.now(),
+    cardAId: pendingConnectionCardId,
+    cardBId: cardId,
+    color: "blue"
+  });
+
+  pendingConnectionCardId = null;
+  saveAppState();
+  renderConnections();
+  setActiveTool("select");
+}
+
+function renderConnections() {
+  const svg = document.getElementById("connections-svg");
+  if (!svg) { return; }
+  svg.innerHTML = "";
+
+  getActiveBoard().connections.forEach(function(connection) {
+    const cardA = document.getElementById(connection.cardAId);
+    const cardB = document.getElementById(connection.cardBId);
+    if (!cardA || !cardB) { return; }
+
+    const x1 = cardA.offsetLeft + cardA.offsetWidth / 2;
+    const y1 = cardA.offsetTop + cardA.offsetHeight / 2;
+    const x2 = cardB.offsetLeft + cardB.offsetWidth / 2;
+    const y2 = cardB.offsetTop + cardB.offsetHeight / 2;
+
+    const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+    line.setAttribute("x1", x1);
+    line.setAttribute("y1", y1);
+    line.setAttribute("x2", x2);
+    line.setAttribute("y2", y2);
+    line.setAttribute("stroke", connection.color || "blue");
+    line.setAttribute("stroke-width", "2");
+    svg.appendChild(line);
+  });
+}

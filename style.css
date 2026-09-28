@@ -20,6 +20,20 @@ header {
   padding: 24px 30px;
 }
 
+#global-hud {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  width: 280px;
+  max-height: 300px;
+  overflow-y: auto;
+  background: white;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  padding: 12px;
+  z-index: 1000;
+}
+
 #canvas-viewport {
   flex: 1;
   position: relative;
@@ -33,6 +47,23 @@ header {
   gap: 8px;
   padding: 10px;
   justify-content: center;
+}
+
+#toolbar button {
+  width: 40px;
+  height: 40px;
+  font-size: 18px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+
+#toolbar button:hover:not(.active) {
+  background-color: #f4f1ea;
 }
 
 .card {
@@ -192,3 +223,11 @@ body.gaming-theme {
 .zone.observation { background: rgba(255, 221, 120, 0.35); border-color: #b8922b; }
 .zone.interpretation { background: rgba(140, 190, 255, 0.35); border-color: #2f6fc4; }
 .zone.application { background: rgba(150, 225, 165, 0.35); border-color: #339650; }
+
+.tool-button.active {
+  background-color: #ffd54f;
+}
+
+.highlighted-verse {
+  background-color: yellow;
+}
