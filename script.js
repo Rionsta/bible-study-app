@@ -307,6 +307,21 @@ document.addEventListener("mouseup", function() {
   activeResizeCardData = null;
 });
 
+const stickyColors = [
+  "#FFF2A6", "#FFC93C", "#FFA857", "#FF6F61",
+  "#FFC2E6", "#FF4FC0", "#AFD4FF", "#8C8CF0",
+  "#9FEFF0", "#4C8CF5", "#4FD9B0", "#34C77B",
+  "#C6EFA0", "#A6D93C", "#F0F0F0", "#1A1A1A"
+];
+
+function isDarkColor(hex) {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+  return brightness < 128;
+}
+
 let activeCard = null;
 let activeCardData = null;
 let cardStartX, cardStartY;
@@ -340,6 +355,53 @@ card.appendChild(cardContent);
     paragraph.textContent = data.text;
     cardContent.appendChild(paragraph);
   } else if (data.type === "note") {
+    card.classList.add("sticky-note");
+
+    if (!data.color) {
+      data.color = stickyColors[0];
+    }
+    card.style.backgroundColor = data.color;
+    card.style.color = isDarkColor(data.color) ? "#f5f5f5" : "#23262b";
+
+    const colorPicker = document.createElement("div");
+    colorPicker.className = "color-picker";
+    colorPicker.style.display = "none";
+
+    stickyColors.forEach(function(color) {
+      const swatch = document.createElement("span");
+      swatch.className = "color-swatch";
+      swatch.style.backgroundColor = color;
+
+      swatch.addEventListener("mousedown", function(event) {
+        event.stopPropagation();
+      });
+
+      swatch.addEventListener("click", function() {
+        data.color = color;
+        card.style.backgroundColor = color;
+        card.style.color = isDarkColor(color) ? "#f5f5f5" : "#23262b";
+        colorPicker.style.display = "none";
+        saveAppState();
+      });
+
+      colorPicker.appendChild(swatch);
+    });
+
+    const paletteButton = document.createElement("button");
+    paletteButton.className = "palette-toggle";
+    paletteButton.textContent = "🎨";
+
+    paletteButton.addEventListener("mousedown", function(event) {
+      event.stopPropagation();
+    });
+
+    paletteButton.addEventListener("click", function() {
+      colorPicker.style.display = colorPicker.style.display === "none" ? "flex" : "none";
+    });
+
+    card.appendChild(paletteButton);
+    cardContent.appendChild(colorPicker);
+
     const textarea = document.createElement("textarea");
     textarea.placeholder = "...";
     textarea.value = data.text;
@@ -355,6 +417,7 @@ card.appendChild(cardContent);
 
     cardContent.appendChild(textarea);
   } else if (data.type === "bible-reader") {
+
   card.classList.add("bible-reader");
 
   const bookSelect = document.createElement("select");
