@@ -3,7 +3,11 @@ const APP_STATE_KEY = "appState";
 function loadAppState() {
   const saved = localStorage.getItem(APP_STATE_KEY);
   if (saved) {
-    return JSON.parse(saved);
+    const state = JSON.parse(saved);
+    Object.values(state.boards).forEach(function(board) {
+      if (!board.drawings) { board.drawings = []; }
+    });
+    return state;
   }
 
 // No new-format save yet — pull in whatever old data exists so it isn't lost
@@ -27,7 +31,8 @@ const oldOffsetY = parseFloat(localStorage.getItem("offsetY")) || 0;
         pan: { offsetX: oldOffsetX, offsetY: oldOffsetY },
         zoom: oldZoom,
         cards: oldCards ? JSON.parse(oldCards) : defaultCards,
-        connections: []
+        connections: [],
+        drawings: []
       }
     },
     highlights: {},
@@ -53,16 +58,37 @@ function renderGlobalHud() {
   const list = document.getElementById("hud-list");
   list.innerHTML = "";
 
-  appState.globalHud.prayerRequests.forEach(function(item) {
+  function addHudItem(icon, item) {
     const li = document.createElement("li");
-    li.textContent = "🙏 " + item.text;
+
+    const textSpan = document.createElement("span");
+    textSpan.textContent = icon + " " + item.text;
+    li.appendChild(textSpan);
+
+    const deleteButton = document.createElement("button");
+    deleteButton.className = "delete-button";
+    deleteButton.textContent = "×";
+    deleteButton.addEventListener("click", function() {
+      appState.globalHud.prayerRequests = appState.globalHud.prayerRequests.filter(function(p) {
+        return p.id !== item.id;
+      });
+      appState.globalHud.questions = appState.globalHud.questions.filter(function(q) {
+        return q.id !== item.id;
+      });
+      saveAppState();
+      renderGlobalHud();
+    });
+    li.appendChild(deleteButton);
+
     list.appendChild(li);
+  }
+
+  appState.globalHud.prayerRequests.forEach(function(item) {
+    addHudItem("🙏", item);
   });
 
   appState.globalHud.questions.forEach(function(item) {
-    const li = document.createElement("li");
-    li.textContent = "❓ " + item.text;
-    list.appendChild(li);
+    addHudItem("❓", item);
   });
 }
 
@@ -106,9 +132,19 @@ function renderBoard() {
   svg.style.pointerEvents = "none";
   world.appendChild(svg);
 
+  const drawingsSvg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  drawingsSvg.id = "drawings-svg";
+  drawingsSvg.style.position = "absolute";
+  drawingsSvg.style.top = "0";
+  drawingsSvg.style.left = "0";
+  drawingsSvg.style.overflow = "visible";
+  drawingsSvg.style.pointerEvents = "none";
+  world.appendChild(drawingsSvg);
+
   getActiveBoard().cards.forEach(renderCard);
   updateWorldTransform();
   renderConnections();
+  renderDrawings();
 }
 
 function switchBoard(boardId) {
@@ -199,12 +235,26 @@ const bibleMaps = [
 ];
 
 viewport.addEventListener("mousedown", function(event) {
+  if (activeTool === "pen") {
+    isPenDrawing = true;
+    currentDrawingPoints = [screenToWorld(event)];
+    return;
+  }
+
   isDragging = true;
   startX = event.clientX - getActiveBoard().pan.offsetX;
   startY = event.clientY - getActiveBoard().pan.offsetY;
 });
 
 viewport.addEventListener("mousemove", function(event) {
+  if (activeTool === "pen") {
+    if (isPenDrawing) {
+      currentDrawingPoints.push(screenToWorld(event));
+      renderDrawings();
+    }
+    return;
+  }
+
   if (isDragging) {
     getActiveBoard().pan.offsetX = event.clientX - startX;
     getActiveBoard().pan.offsetY = event.clientY - startY;
@@ -213,8 +263,28 @@ viewport.addEventListener("mousemove", function(event) {
 });
 
 viewport.addEventListener("mouseup", function() {
+  if (activeTool === "pen") {
+    return;
+  }
+
   isDragging = false;
   saveAppState();
+});
+
+document.addEventListener("mouseup", function() {
+  if (!isPenDrawing) { return; }
+
+  if (currentDrawingPoints && currentDrawingPoints.length > 1) {
+    getActiveBoard().drawings.push({
+      id: "drawing-" + Date.now(),
+      points: currentDrawingPoints
+    });
+    saveAppState();
+  }
+
+  isPenDrawing = false;
+  currentDrawingPoints = null;
+  renderDrawings();
 });
 
 document.addEventListener("mousemove", function(event) {
@@ -640,6 +710,7 @@ document.getElementById("open-bible-button").addEventListener("click", function(
 
 updateWorldTransform();
 renderBoardSwitcher();
+renderGlobalHud();
 
 function addZoneCard(label) {
   newCardCount++;
@@ -661,18 +732,49 @@ function addZoneCard(label) {
 document.getElementById("add-observation-button").addEventListener("click", function() {
   addZoneCard("Observation");
 });
+
 document.getElementById("add-interpretation-button").addEventListener("click", function() {
   addZoneCard("Interpretation");
 });
+
 document.getElementById("add-application-button").addEventListener("click", function() {
   addZoneCard("Application");
 });
+
+document.getElementById("rename-board-button").addEventListener("click", function() {
+  const newName = prompt("Rename this board:", getActiveBoard().name);
+  if (!newName) { return; }
+
+  getActiveBoard().name = newName;
+  renderBoardSwitcher();
+  saveAppState();
+});
+
+document.getElementById("delete-board-button").addEventListener("click", function() {
+  const boardIds = Object.keys(appState.boards);
+  if (boardIds.length <= 1) {
+    alert("You can't delete your only board.");
+    return;
+  }
+
+  
+
+  const confirmed = confirm("Delete \"" + getActiveBoard().name + "\"? This can't be undone.");
+  if (!confirmed) { return; }
+
+  delete appState.boards[appState.activeBoardId];
+
+  const remainingId = Object.keys(appState.boards)[0];
+  switchBoard(remainingId);
+});
+
 document.getElementById("add-board-button").addEventListener("click", function() {
   const name = prompt("Name this board:");
   if (name) {
     createBoard(name);
   }
 });
+
 document.getElementById("board-switcher").addEventListener("change", function() {
   switchBoard(this.value);
 });
@@ -686,7 +788,8 @@ function createBoard(name) {
     pan: { offsetX: 0, offsetY: 0 },
     zoom: 1,
     cards: [],
-    connections: []
+    connections: [],
+    drawings: []
   };
 
   switchBoard(newId);
@@ -711,6 +814,49 @@ let pendingConnectionCardId = null;
 document.getElementById("tool-connect").addEventListener("click", function() {
   setActiveTool("connect");
 });
+document.getElementById("tool-pen").addEventListener("click", function() {
+  setActiveTool("pen");
+});
+
+let isPenDrawing = false;
+let currentDrawingPoints = null;
+
+function screenToWorld(event) {
+  const rect = viewport.getBoundingClientRect();
+  return {
+    x: (event.clientX - rect.left - getActiveBoard().pan.offsetX) / getActiveBoard().zoom,
+    y: (event.clientY - rect.top - getActiveBoard().pan.offsetY) / getActiveBoard().zoom
+  };
+}
+
+function renderDrawings() {
+  const svg = document.getElementById("drawings-svg");
+  if (!svg) { return; }
+  svg.innerHTML = "";
+
+  function drawPolyline(points) {
+    const pointsAttr = points.map(function(point) {
+      return point.x + "," + point.y;
+    }).join(" ");
+
+    const polyline = document.createElementNS("http://www.w3.org/2000/svg", "polyline");
+    polyline.setAttribute("points", pointsAttr);
+    polyline.setAttribute("fill", "none");
+    polyline.setAttribute("stroke", "#e63946");
+    polyline.setAttribute("stroke-width", "3");
+    polyline.setAttribute("stroke-linecap", "round");
+    polyline.setAttribute("stroke-linejoin", "round");
+    svg.appendChild(polyline);
+  }
+
+  getActiveBoard().drawings.forEach(function(drawing) {
+    drawPolyline(drawing.points);
+  });
+
+  if (currentDrawingPoints && currentDrawingPoints.length > 1) {
+    drawPolyline(currentDrawingPoints);
+  }
+}
 
 function handleConnectClick(cardId) {
   if (!pendingConnectionCardId) {
