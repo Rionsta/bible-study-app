@@ -204,6 +204,37 @@ header {
   z-index: 1000;
 }
 
+#connector-style-menu {
+  position: fixed;
+  bottom: 70px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 6px;
+  background: white;
+  border: 1px solid #ccc;
+  border-radius: 12px;
+  padding: 8px;
+  z-index: 1000;
+}
+
+.connection-pending {
+  box-shadow: 0 0 0 3px #2f6fc4;
+}
+
+.style-option {
+  padding: 6px 10px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  background: white;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.style-option:hover {
+  background-color: #f4f1ea;
+}
+
 .hidden {
   display: none;
 }

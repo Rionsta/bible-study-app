@@ -164,7 +164,13 @@ let activeTool = "select";
 
 function setActiveTool(tool) {
   activeTool = tool;
+
+  if (pendingConnectionCardId) {
+    const pendingCard = document.getElementById(pendingConnectionCardId);
+    if (pendingCard) { pendingCard.classList.remove("connection-pending"); }
+  }
   pendingConnectionCardId = null;
+
   document.querySelectorAll(".tool-button").forEach(function(button) {
     button.classList.remove("active");
   });
@@ -406,6 +412,35 @@ stickyColors.forEach(function(color) {
 });
 
 document.body.appendChild(underlineColorMenu);
+
+let currentConnectorStyle = "line";
+
+const connectorStyles = [
+  { value: "line", label: "Line" },
+  { value: "arrow", label: "Arrow" },
+  { value: "elbow", label: "Elbow Arrow" },
+  { value: "block", label: "Block Arrow" }
+];
+
+const connectorStyleMenu = document.createElement("div");
+connectorStyleMenu.id = "connector-style-menu";
+connectorStyleMenu.style.display = "none";
+
+connectorStyles.forEach(function(style) {
+  const option = document.createElement("button");
+  option.className = "style-option";
+  option.textContent = style.label;
+
+  option.addEventListener("click", function() {
+    currentConnectorStyle = style.value;
+    connectorStyleMenu.style.display = "none";
+    setActiveTool("connect");
+  });
+
+  connectorStyleMenu.appendChild(option);
+});
+
+document.body.appendChild(connectorStyleMenu);
 
 function isDarkColor(hex) {
   const r = parseInt(hex.slice(1, 3), 16);
@@ -1030,7 +1065,7 @@ function renderBoardSwitcher() {
 let pendingConnectionCardId = null;
 
 document.getElementById("tool-connect").addEventListener("click", function() {
-  setActiveTool("connect");
+  connectorStyleMenu.style.display = connectorStyleMenu.style.display === "none" ? "flex" : "none";
 });
 document.getElementById("tool-pen").addEventListener("click", function() {
   penColorMenu.style.display = penColorMenu.style.display === "none" ? "flex" : "none";
@@ -1102,19 +1137,27 @@ document.getElementById("redo-drawing-button").addEventListener("click", functio
 function handleConnectClick(cardId) {
   if (!pendingConnectionCardId) {
     pendingConnectionCardId = cardId;
+    const card = document.getElementById(cardId);
+    if (card) { card.classList.add("connection-pending"); }
     return;
   }
 
   if (pendingConnectionCardId === cardId) {
+    const card = document.getElementById(cardId);
+    if (card) { card.classList.remove("connection-pending"); }
     pendingConnectionCardId = null;
     return;
   }
+
+  const pendingCard = document.getElementById(pendingConnectionCardId);
+  if (pendingCard) { pendingCard.classList.remove("connection-pending"); }
 
   getActiveBoard().connections.push({
     id: "connection-" + Date.now(),
     cardAId: pendingConnectionCardId,
     cardBId: cardId,
-    color: "blue"
+    color: "blue",
+    style: currentConnectorStyle
   });
 
   pendingConnectionCardId = null;
@@ -1123,28 +1166,72 @@ function handleConnectClick(cardId) {
   setActiveTool("select");
 }
 
+function pointOnRectEdge(centerX, centerY, halfWidth, halfHeight, towardX, towardY) {
+  const dx = towardX - centerX;
+  const dy = towardY - centerY;
+
+  if (dx === 0 && dy === 0) {
+    return { x: centerX, y: centerY };
+  }
+
+  const scaleX = dx !== 0 ? halfWidth / Math.abs(dx) : Infinity;
+  const scaleY = dy !== 0 ? halfHeight / Math.abs(dy) : Infinity;
+  const scale = Math.min(scaleX, scaleY);
+
+  return {
+    x: centerX + dx * scale,
+    y: centerY + dy * scale
+  };
+}
+
 function renderConnections() {
   const svg = document.getElementById("connections-svg");
   if (!svg) { return; }
   svg.innerHTML = "";
+
+  const defs = document.createElementNS("http://www.w3.org/2000/svg", "defs");
+  const marker = document.createElementNS("http://www.w3.org/2000/svg", "marker");
+  marker.setAttribute("id", "arrowhead");
+  marker.setAttribute("markerWidth", "10");
+  marker.setAttribute("markerHeight", "10");
+  marker.setAttribute("refX", "8");
+  marker.setAttribute("refY", "3");
+  marker.setAttribute("orient", "auto");
+  marker.setAttribute("markerUnits", "strokeWidth");
+
+  const arrowPath = document.createElementNS("http://www.w3.org/2000/svg", "path");
+  arrowPath.setAttribute("d", "M0,0 L0,6 L9,3 z");
+  arrowPath.setAttribute("fill", "blue");
+
+  marker.appendChild(arrowPath);
+  defs.appendChild(marker);
+  svg.appendChild(defs);
 
   getActiveBoard().connections.forEach(function(connection) {
     const cardA = document.getElementById(connection.cardAId);
     const cardB = document.getElementById(connection.cardBId);
     if (!cardA || !cardB) { return; }
 
-    const x1 = cardA.offsetLeft + cardA.offsetWidth / 2;
-    const y1 = cardA.offsetTop + cardA.offsetHeight / 2;
-    const x2 = cardB.offsetLeft + cardB.offsetWidth / 2;
-    const y2 = cardB.offsetTop + cardB.offsetHeight / 2;
+    const aCenterX = cardA.offsetLeft + cardA.offsetWidth / 2;
+    const aCenterY = cardA.offsetTop + cardA.offsetHeight / 2;
+    const bCenterX = cardB.offsetLeft + cardB.offsetWidth / 2;
+    const bCenterY = cardB.offsetTop + cardB.offsetHeight / 2;
+
+    const start = pointOnRectEdge(aCenterX, aCenterY, cardA.offsetWidth / 2, cardA.offsetHeight / 2, bCenterX, bCenterY);
+    const end = pointOnRectEdge(bCenterX, bCenterY, cardB.offsetWidth / 2, cardB.offsetHeight / 2, aCenterX, aCenterY);
 
     const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
-    line.setAttribute("x1", x1);
-    line.setAttribute("y1", y1);
-    line.setAttribute("x2", x2);
-    line.setAttribute("y2", y2);
+    line.setAttribute("x1", start.x);
+    line.setAttribute("y1", start.y);
+    line.setAttribute("x2", end.x);
+    line.setAttribute("y2", end.y);
     line.setAttribute("stroke", connection.color || "blue");
     line.setAttribute("stroke-width", "2");
+
+    if (connection.style === "arrow") {
+      line.setAttribute("marker-end", "url(#arrowhead)");
+    }
+
     svg.appendChild(line);
   });
 }
