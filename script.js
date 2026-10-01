@@ -7,6 +7,7 @@ function loadAppState() {
     Object.values(state.boards).forEach(function(board) {
       if (!board.drawings) { board.drawings = []; }
     });
+      if (!state.underlines) { state.underlines = {}; }
     return state;
   }
 
@@ -36,6 +37,7 @@ const oldOffsetY = parseFloat(localStorage.getItem("offsetY")) || 0;
       }
     },
     highlights: {},
+    underlines: {},
     globalHud: {
       prayerRequests: [],
       questions: [],
@@ -172,15 +174,25 @@ function setActiveTool(tool) {
 document.getElementById("tool-select").addEventListener("click", function() {
   setActiveTool("select");
 });
+
 document.getElementById("tool-highlight").addEventListener("click", function() {
-  setActiveTool("highlight");
+  highlightColorMenu.style.display = highlightColorMenu.style.display === "none" ? "flex" : "none";
 });
 
 function toggleHighlight(verseId) {
   if (appState.highlights[verseId]) {
     delete appState.highlights[verseId];
   } else {
-    appState.highlights[verseId] = { color: "yellow" };
+    appState.highlights[verseId] = { color: currentHighlightColor };
+  }
+  saveAppState();
+}
+
+function toggleUnderline(verseId) {
+  if (appState.underlines[verseId]) {
+    delete appState.underlines[verseId];
+  } else {
+    appState.underlines[verseId] = { color: currentUnderlineColor };
   }
   saveAppState();
 }
@@ -277,8 +289,10 @@ document.addEventListener("mouseup", function() {
   if (currentDrawingPoints && currentDrawingPoints.length > 1) {
     getActiveBoard().drawings.push({
       id: "drawing-" + Date.now(),
-      points: currentDrawingPoints
+      points: currentDrawingPoints,
+      color: currentPenColor
     });
+    redoStack = [];
     saveAppState();
   }
 
@@ -313,6 +327,75 @@ const stickyColors = [
   "#9FEFF0", "#4C8CF5", "#4FD9B0", "#34C77B",
   "#C6EFA0", "#A6D93C", "#F0F0F0", "#1A1A1A"
 ];
+
+let currentHighlightColor = stickyColors[0];
+
+const highlightColorMenu = document.createElement("div");
+highlightColorMenu.id = "highlight-color-menu";
+highlightColorMenu.className = "color-picker";
+highlightColorMenu.style.display = "none";
+
+stickyColors.forEach(function(color) {
+  const swatch = document.createElement("span");
+  swatch.className = "color-swatch";
+  swatch.style.backgroundColor = color;
+
+  swatch.addEventListener("click", function() {
+    currentHighlightColor = color;
+    highlightColorMenu.style.display = "none";
+    setActiveTool("highlight");
+  });
+
+  highlightColorMenu.appendChild(swatch);
+});
+
+document.body.appendChild(highlightColorMenu);
+
+let currentPenColor = stickyColors[0];
+
+const penColorMenu = document.createElement("div");
+penColorMenu.id = "pen-color-menu";
+penColorMenu.className = "color-picker";
+penColorMenu.style.display = "none";
+
+stickyColors.forEach(function(color) {
+  const swatch = document.createElement("span");
+  swatch.className = "color-swatch";
+  swatch.style.backgroundColor = color;
+
+  swatch.addEventListener("click", function() {
+    currentPenColor = color;
+    penColorMenu.style.display = "none";
+    setActiveTool("pen");
+  });
+
+  penColorMenu.appendChild(swatch);
+});
+
+document.body.appendChild(penColorMenu);
+
+let currentUnderlineColor = stickyColors[0];
+
+const underlineColorMenu = document.createElement("div");
+underlineColorMenu.id = "underline-color-menu";
+underlineColorMenu.className = "color-picker";
+underlineColorMenu.style.display = "none";
+
+stickyColors.forEach(function(color) {
+  const swatch = document.createElement("span");
+  swatch.className = "color-swatch";
+  swatch.style.backgroundColor = color;
+
+  swatch.addEventListener("click", function() {
+    currentUnderlineColor = color;
+    underlineColorMenu.style.display = "none";
+    setActiveTool("underline");
+  });
+
+  underlineColorMenu.appendChild(swatch);
+});
+
+document.body.appendChild(underlineColorMenu);
 
 function isDarkColor(hex) {
   const r = parseInt(hex.slice(1, 3), 16);
@@ -444,15 +527,29 @@ card.appendChild(cardContent);
 
     if (appState.highlights[verseId]) {
       versePara.classList.add("highlighted-verse");
+      versePara.style.backgroundColor = appState.highlights[verseId].color;
+      versePara.style.color = isDarkColor(appState.highlights[verseId].color) ? "#f5f5f5" : "#23262b";
+    }
+
+     if (appState.underlines[verseId]) {
+      versePara.classList.add("underlined-verse");
+      versePara.style.textDecorationLine = "underline";
+      versePara.style.textDecorationColor = appState.underlines[verseId].color;
     }
 
     versePara.addEventListener("mousedown", function(event) {
       event.stopPropagation();
     });
 
-    versePara.addEventListener("click", function() {
+     versePara.addEventListener("click", function() {
       if (activeTool === "highlight") {
         toggleHighlight(verseId);
+        renderChapter(book, chapter);
+        return;
+      }
+
+      if (activeTool === "underline") {
+        toggleUnderline(verseId);
         renderChapter(book, chapter);
         return;
       }
@@ -878,7 +975,10 @@ document.getElementById("tool-connect").addEventListener("click", function() {
   setActiveTool("connect");
 });
 document.getElementById("tool-pen").addEventListener("click", function() {
-  setActiveTool("pen");
+  penColorMenu.style.display = penColorMenu.style.display === "none" ? "flex" : "none";
+});
+document.getElementById("tool-underline").addEventListener("click", function() {
+  underlineColorMenu.style.display = underlineColorMenu.style.display === "none" ? "flex" : "none";
 });
 
 let isPenDrawing = false;
@@ -897,7 +997,7 @@ function renderDrawings() {
   if (!svg) { return; }
   svg.innerHTML = "";
 
-  function drawPolyline(points) {
+  function drawPolyline(points, color) {
     const pointsAttr = points.map(function(point) {
       return point.x + "," + point.y;
     }).join(" ");
@@ -905,7 +1005,7 @@ function renderDrawings() {
     const polyline = document.createElementNS("http://www.w3.org/2000/svg", "polyline");
     polyline.setAttribute("points", pointsAttr);
     polyline.setAttribute("fill", "none");
-    polyline.setAttribute("stroke", "#e63946");
+    polyline.setAttribute("stroke", color);
     polyline.setAttribute("stroke-width", "3");
     polyline.setAttribute("stroke-linecap", "round");
     polyline.setAttribute("stroke-linejoin", "round");
@@ -913,13 +1013,33 @@ function renderDrawings() {
   }
 
   getActiveBoard().drawings.forEach(function(drawing) {
-    drawPolyline(drawing.points);
+    drawPolyline(drawing.points, drawing.color || "#e63946");
   });
 
   if (currentDrawingPoints && currentDrawingPoints.length > 1) {
-    drawPolyline(currentDrawingPoints);
+    drawPolyline(currentDrawingPoints, currentPenColor);
   }
 }
+
+let redoStack = [];
+
+document.getElementById("undo-drawing-button").addEventListener("click", function() {
+  const removed = getActiveBoard().drawings.pop();
+  if (removed) {
+    redoStack.push(removed);
+  }
+  saveAppState();
+  renderDrawings();
+});
+
+document.getElementById("redo-drawing-button").addEventListener("click", function() {
+  const restored = redoStack.pop();
+  if (restored) {
+    getActiveBoard().drawings.push(restored);
+    saveAppState();
+    renderDrawings();
+  }
+});
 
 function handleConnectClick(cardId) {
   if (!pendingConnectionCardId) {

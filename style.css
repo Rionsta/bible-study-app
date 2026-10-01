@@ -168,6 +168,42 @@ header {
   height: calc(100% - 20px);
 }
 
+#highlight-color-menu {
+  position: fixed;
+  bottom: 70px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: white;
+  border: 1px solid #ccc;
+  border-radius: 12px;
+  padding: 8px;
+  z-index: 1000;
+}
+
+#pen-color-menu {
+  position: fixed;
+  bottom: 70px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: white;
+  border: 1px solid #ccc;
+  border-radius: 12px;
+  padding: 8px;
+  z-index: 1000;
+}
+
+#underline-color-menu {
+  position: fixed;
+  bottom: 70px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: white;
+  border: 1px solid #ccc;
+  border-radius: 12px;
+  padding: 8px;
+  z-index: 1000;
+}
+
 .hidden {
   display: none;
 }
@@ -310,6 +346,11 @@ body.gaming-theme {
 
 .highlighted-verse {
   background-color: yellow;
+}
+
+.underlined-verse {
+  text-decoration-thickness: 3px;
+  text-underline-offset: 3px;
 }
 
 #hud-list li {
