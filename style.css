@@ -113,7 +113,7 @@ header {
   padding: 10px;
   background: white;
   border: 1px dashed #a89f8c;
-  user-select: none;
+  user-select: text;
   color: #23262b;
 }
 
@@ -362,4 +362,9 @@ body.gaming-theme {
 
 #hud-list .delete-button {
   position: static;
+}
+
+.text-box {
+  background: transparent;
+  border: none;
 }

@@ -174,7 +174,9 @@ function setActiveTool(tool) {
 document.getElementById("tool-select").addEventListener("click", function() {
   setActiveTool("select");
 });
-
+document.getElementById("tool-text").addEventListener("click", function() {
+  setActiveTool("text");
+});
 document.getElementById("tool-highlight").addEventListener("click", function() {
   highlightColorMenu.style.display = highlightColorMenu.style.display === "none" ? "flex" : "none";
 });
@@ -247,6 +249,13 @@ const bibleMaps = [
 ];
 
 viewport.addEventListener("mousedown", function(event) {
+  if (activeTool === "text") {
+    const position = screenToWorld(event);
+    addTextCard(position.x, position.y);
+    setActiveTool("select");
+    return;
+  }
+
   if (activeTool === "pen") {
     isPenDrawing = true;
     currentDrawingPoints = [screenToWorld(event)];
@@ -254,6 +263,7 @@ viewport.addEventListener("mousedown", function(event) {
   }
 
   isDragging = true;
+
   startX = event.clientX - getActiveBoard().pan.offsetX;
   startY = event.clientY - getActiveBoard().pan.offsetY;
 });
@@ -432,10 +442,16 @@ card.appendChild(cardContent);
   if (data.type === "scripture") {
     const heading = document.createElement("h2");
     heading.textContent = data.reference;
+    heading.addEventListener("mousedown", function(event) {
+      event.stopPropagation();
+    });
     cardContent.appendChild(heading);
 
     const paragraph = document.createElement("p");
     paragraph.textContent = data.text;
+    paragraph.addEventListener("mousedown", function(event) {
+      event.stopPropagation();
+    });
     cardContent.appendChild(paragraph);
   } else if (data.type === "note") {
     card.classList.add("sticky-note");
@@ -499,6 +515,23 @@ card.appendChild(cardContent);
     });
 
     cardContent.appendChild(textarea);
+  } else if (data.type === "text") {
+    card.classList.add("text-box");
+
+    const textarea = document.createElement("textarea");
+    textarea.placeholder = "Type...";
+    textarea.value = data.text || "";
+
+    textarea.addEventListener("mousedown", function(event) {
+      event.stopPropagation();
+    });
+
+    textarea.addEventListener("input", function() {
+      data.text = textarea.value;
+      saveAppState();
+    });
+
+    cardContent.appendChild(textarea);
   } else if (data.type === "bible-reader") {
 
   card.classList.add("bible-reader");
@@ -541,7 +574,11 @@ card.appendChild(cardContent);
       event.stopPropagation();
     });
 
-     versePara.addEventListener("click", function() {
+    versePara.addEventListener("click", function() {
+      if (window.getSelection().toString().length > 0) {
+        return;
+      }
+
       if (activeTool === "highlight") {
         toggleHighlight(verseId);
         renderChapter(book, chapter);
@@ -684,6 +721,7 @@ deleteButton.addEventListener("click", function() {
 card.addEventListener("mousedown", function(event) {
   if (data.locked) { return; }
   event.stopPropagation();
+  event.preventDefault();
 
   if (activeTool === "connect") {
     handleConnectClick(data.id);
@@ -701,6 +739,7 @@ card.appendChild(deleteButton);
   card.addEventListener("mousedown", function(event) {
     if (data.locked) { return; }
     event.stopPropagation();
+    event.preventDefault();
     activeCard = card;
     activeCardData = data;
     cardStartX = event.clientX - card.offsetLeft;
@@ -714,6 +753,7 @@ resizeHandle.className = "resize-handle";
 
 resizeHandle.addEventListener("mousedown", function(event) {
   event.stopPropagation();
+  event.preventDefault();
   activeResizeCard = card;
   activeResizeCardData = data;
   resizeStartX = event.clientX;
@@ -871,6 +911,24 @@ document.getElementById("open-bible-button").addEventListener("click", function(
 updateWorldTransform();
 renderBoardSwitcher();
 renderGlobalHud();
+
+function addTextCard(left, top) {
+  newCardCount++;
+  const newData = {
+    id: "text-card-" + Date.now(),
+    type: "text",
+    text: "",
+    left: left,
+    top: top
+  };
+  getActiveBoard().cards.push(newData);
+  renderCard(newData);
+  saveAppState();
+
+  const newCard = document.getElementById(newData.id);
+  const newTextarea = newCard ? newCard.querySelector("textarea") : null;
+  if (newTextarea) { newTextarea.focus(); }
+}
 
 function addZoneCard(label) {
   newCardCount++;
