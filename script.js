@@ -419,7 +419,6 @@ const connectorStyles = [
   { value: "line", label: "Line" },
   { value: "arrow", label: "Arrow" },
   { value: "elbow", label: "Elbow Arrow" },
-  { value: "block", label: "Block Arrow" }
 ];
 
 const connectorStyleMenu = document.createElement("div");
@@ -488,6 +487,22 @@ card.appendChild(cardContent);
       event.stopPropagation();
     });
     cardContent.appendChild(paragraph);
+
+    const noteArea = document.createElement("textarea");
+    noteArea.className = "card-note";
+    noteArea.placeholder = "Add a note...";
+    noteArea.value = data.note || "";
+
+    noteArea.addEventListener("mousedown", function(event) {
+      event.stopPropagation();
+    });
+
+    noteArea.addEventListener("input", function() {
+      data.note = noteArea.value;
+      saveAppState();
+    });
+
+    cardContent.appendChild(noteArea);
   } else if (data.type === "note") {
     card.classList.add("sticky-note");
 
@@ -605,12 +620,43 @@ card.appendChild(cardContent);
       versePara.style.textDecorationColor = appState.underlines[verseId].color;
     }
 
+    let longPressTimer = null;
+    let longPressFired = false;
+
     versePara.addEventListener("mousedown", function(event) {
       event.stopPropagation();
+
+      if (activeTool === "highlight" || activeTool === "underline") {
+        return;
+      }
+
+      longPressFired = false;
+      versePara.classList.add("charging");
+
+      longPressTimer = setTimeout(function() {
+        longPressFired = true;
+        versePara.classList.remove("charging");
+        const reference = book + " " + chapter + ":" + verseNumber;
+        addVerseCard(reference, verses[verseNumber]);
+      }, 500);
+    });
+
+    versePara.addEventListener("mouseup", function() {
+      clearTimeout(longPressTimer);
+      versePara.classList.remove("charging");
+    });
+
+    versePara.addEventListener("mouseleave", function() {
+      clearTimeout(longPressTimer);
+      versePara.classList.remove("charging");
     });
 
     versePara.addEventListener("click", function() {
       if (window.getSelection().toString().length > 0) {
+        return;
+      }
+
+      if (longPressFired) {
         return;
       }
 
@@ -625,9 +671,6 @@ card.appendChild(cardContent);
         renderChapter(book, chapter);
         return;
       }
-
-      const reference = book + " " + chapter + ":" + verseNumber;
-      addVerseCard(reference, verses[verseNumber]);
     });
 
     textDisplay.appendChild(versePara);
@@ -771,16 +814,6 @@ card.addEventListener("mousedown", function(event) {
 
 card.appendChild(deleteButton);
 
-  card.addEventListener("mousedown", function(event) {
-    if (data.locked) { return; }
-    event.stopPropagation();
-    event.preventDefault();
-    activeCard = card;
-    activeCardData = data;
-    cardStartX = event.clientX - card.offsetLeft;
-    cardStartY = event.clientY - card.offsetTop;
-  });
-
   world.appendChild(card);
 
   const resizeHandle = document.createElement("div");
@@ -818,10 +851,7 @@ document.addEventListener("mouseup", function() {
   activeCardData = null;
 });
 
-let newCardCount = 0;
-
 document.getElementById("add-card-button").addEventListener("click", function() {
-  newCardCount++;
   const offset = randomOffset();
   const newData = { id: "note-card-" + Date.now(), type: "note", text: "", left: 150 + offset.x, top: 150 + offset.y };
   getActiveBoard().cards.push(newData);
@@ -830,7 +860,6 @@ document.getElementById("add-card-button").addEventListener("click", function() 
 });
 
 document.getElementById("add-map-button").addEventListener("click", function() {
-  newCardCount++;
   const offset = randomOffset();
   const newData = {
     id: "map-card-" + Date.now(),
@@ -897,7 +926,6 @@ function findOfflineVerse(reference) {
 }
 
 function addVerseCard(reference, text) {
-  newCardCount++;
   const newData = {
     id: "verse-card-" + Date.now(),
     type: "scripture",
@@ -930,7 +958,6 @@ function getVerseData(reference) {
 }
 
 document.getElementById("open-bible-button").addEventListener("click", function() {
-  newCardCount++;
   const offset = randomOffset();
   const newData = {
     id: "bible-reader-" + Date.now(),
@@ -948,7 +975,6 @@ renderBoardSwitcher();
 renderGlobalHud();
 
 function addTextCard(left, top) {
-  newCardCount++;
   const newData = {
     id: "text-card-" + Date.now(),
     type: "text",
@@ -966,7 +992,6 @@ function addTextCard(left, top) {
 }
 
 function addZoneCard(label) {
-  newCardCount++;
   const offset = randomOffset();
   const newData = {
     id: "zone-card-" + Date.now(),
@@ -1216,6 +1241,23 @@ function renderConnections() {
     const aCenterY = cardA.offsetTop + cardA.offsetHeight / 2;
     const bCenterX = cardB.offsetLeft + cardB.offsetWidth / 2;
     const bCenterY = cardB.offsetTop + cardB.offsetHeight / 2;
+
+    if (connection.style === "elbow") {
+      const bend = { x: bCenterX, y: aCenterY };
+      const start = pointOnRectEdge(aCenterX, aCenterY, cardA.offsetWidth / 2, cardA.offsetHeight / 2, bend.x, bend.y);
+      const end = pointOnRectEdge(bCenterX, bCenterY, cardB.offsetWidth / 2, cardB.offsetHeight / 2, bend.x, bend.y);
+
+      const points = start.x + "," + start.y + " " + bend.x + "," + bend.y + " " + end.x + "," + end.y;
+
+      const polyline = document.createElementNS("http://www.w3.org/2000/svg", "polyline");
+      polyline.setAttribute("points", points);
+      polyline.setAttribute("fill", "none");
+      polyline.setAttribute("stroke", connection.color || "blue");
+      polyline.setAttribute("stroke-width", "2");
+      polyline.setAttribute("marker-end", "url(#arrowhead)");
+      svg.appendChild(polyline);
+      return;
+    }
 
     const start = pointOnRectEdge(aCenterX, aCenterY, cardA.offsetWidth / 2, cardA.offsetHeight / 2, bCenterX, bCenterY);
     const end = pointOnRectEdge(bCenterX, bCenterY, cardB.offsetWidth / 2, cardB.offsetHeight / 2, aCenterX, aCenterY);

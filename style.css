@@ -39,6 +39,8 @@ header {
   position: relative;
   overflow: hidden;
   min-height: 0;
+  width: 100%;
+  cursor: grab;
 }
 
 #toolbar {
@@ -115,6 +117,7 @@ header {
   border: 1px dashed #a89f8c;
   user-select: text;
   color: #23262b;
+  z-index: 1;
 }
 
 .card-content {
@@ -127,6 +130,20 @@ header {
   color: #7a5c3e;
   font-size: 18px;
   margin-bottom: 8px;
+}
+
+.card textarea.card-note {
+  height: 60px;
+  text-align: left;
+  border-top: 1px dashed #d8d2c4;
+  padding-top: 6px;
+  margin-top: 8px;
+  font-size: 13px;
+}
+
+.pullable-verse.charging {
+  background-color: #f4f1ea;
+  transition: background-color 0.5s ease;
 }
 
 .sticky-note {
@@ -235,19 +252,9 @@ header {
   background-color: #f4f1ea;
 }
 
-.hidden {
-  display: none;
-}
-
 body.gaming-theme {
   background-color: #1a1a2e;
   color: #eaeaea;
-}
-
-#canvas-viewport {
-  width: 100%;
-  overflow: hidden;
-  position: relative;
 }
 
 #canvas-world {
@@ -256,27 +263,8 @@ body.gaming-theme {
   transform-origin: 0 0;
 }
 
-#canvas-viewport {
-  cursor: grab;
-}
-
 #canvas-viewport:active {
   cursor: grabbing;
-}
-
-#genesis-card {
-  top: 50px;
-  left: 50px;
-}
-
-#psalm-card {
-  top: 50px;
-  left: 350px;
-}
-
-#john-card {
-  top: 50px;
-  left: 650px;
 }
 
 .delete-button {
@@ -349,10 +337,6 @@ body.gaming-theme {
   margin-top: 8px;
 }
 
-.card {
-  z-index: 1;
-}
-
 .zone {
   z-index: 0;
   border: 2px dashed;
@@ -373,10 +357,6 @@ body.gaming-theme {
 
 .tool-button.active {
   background-color: #ffd54f;
-}
-
-.highlighted-verse {
-  background-color: yellow;
 }
 
 .underlined-verse {
